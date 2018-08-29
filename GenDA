@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+
+MY_WD="$(pwd)"
+MY_LOC="`dirname \"$0\"`"
+
+echo "My current working directory is $MY_WD"
+echo "My storage location is $MY_LOC"
+
+source GenDA/func_config.sh
+GET_arrayData "${inputTab}" dirNames sampleNames
+
+#Waiting on freebayes calls run by other scripts.
+if [[ $(pgrep -x "freebayes|java|bwa" | wc -l) -ge 1 ]]; then
+    echo I have detected programs that are part of my code to be active. This might mean that I am already running somewhere.
+fi
+while [[ $(pgrep -x "freebayes|java|bwa" | wc -l) -ge 1 ]]; do
+    echo Waiting for 60 seconds on GenDA like calls run by other scripts.
+    echo Their PIDs are:
+    pgrep -a -x "freebayes|java"
+    echo
+    echo For manual selection to kill processes check the line below:
+    pgrep -x "freebayes|java|bwa"
+    sleep 60
+done
+
+GENERATE_storage_structure
+
+cd analysis/temp/
+
+#Running pre Quality Check and BWA on all samples in key_fqLocations.sh
+RUN_preQC_bwa_v2
+
+cd "$MY_WD"
+
+#find all files in the subdirectories of the wd and give them the permissions: -rwxrwxr-x 
+find "$MY_WD" | xargs --max-args=1 --max-procs=100 chmod 775
+
+#move files to where they belong, considering their name and the storage structure.
+find . -name "*_markduplicates.ba*" -exec mv -t bam/ {} +
+find . -name "*_metrics.txt" -exec mv -t analysis/bam/metrics {} +
+find . -name "*.stats" -exec mv -t analysis/bam/stats {} +
+
+cd "$MY_WD"/vcf
+
+MAKE_bamlist_file "$MY_WD"/bam/ > bam.list
+MAKE_regions_file > regions.txt
+RUN_freebayes-parallel_v2 regions.txt bam.list > "$Project".raw.vcf.gz
+
+vt normalize "$Project".raw.vcf.gz > "$Project".norm.vcf
+
+for file in "$MY_WD"/vcf/*.vcf*; do
+    tabix -p vcf $file &
+done
+
+find "$MY_WD" | xargs --max-args=1 --max-procs=100 chmod 775
+
+cd "$MY_WD"
+
+exit 0
