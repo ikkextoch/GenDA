@@ -57,3 +57,31 @@ find "$MY_WD" | xargs --max-args=1 --max-procs=100 chmod 775
 cd "$MY_WD"
 
 exit 0
+
+
+RUN_vcf_filters "$Project".raw.vcf.gz
+#simpleSamplePanel="$Project".simple.vcf.gz
+#echo "Using $simpleSamplePanel as simple Sample Panel"
+#CHECK_simpleDivPanel_VCF
+
+#bcftools isec -C -c none $simpleSamplePanel $simpleDivPanel | bgzip -c > samplesPanel.isec.vcf.gz
+
+#RUN_vcf_filters totalPanel.vcf.gz
+
+#for i in *.vcf.gz; do
+#    bcftools stats $i > stats/$i.bcftools.stats
+#done
+
+#chmod 775 *
+
+cd ../
+
+MAKE_Jbrowse_config_file > "$Project".jbrowse.tracks.conf
+
+sudo aws s3 sync . s3://lim-backup- --exclude "*ill*" --exclude "*back*" --exclude "*fast*" --exclude "*pip*" --exclude "*GenDA/bwa_index/*" --exclude "*GenDA/inputTab.txt.*" --exclude "*~*"
+
+
+echo The only thing left to do now is add the following sentence
+echo include += https://s3.eu-central-1.amazonaws.com/lim-asp-data/WGS/"$Project"/"$Project".jbrowse.tracks.conf
+echo to the document stored at location:
+echo /mnt/lim-asp-data/AsparagusMaleV1/data/tracks.conf
